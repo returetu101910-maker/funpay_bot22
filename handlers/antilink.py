@@ -2,7 +2,7 @@ import re
 import asyncio
 
 from aiogram import Router, F
-from aiogram.types import Message, ChatPermissions
+from aiogram.types import Message
 from aiogram.enums import ChatMemberStatus
 from aiogram.filters import Command
 
