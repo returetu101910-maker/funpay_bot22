@@ -428,7 +428,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     inc_completed_deals(creator_id)
     inc_completed_deals(seller_id)
 
-    # Продавцу
     try:
         await call.bot.send_message(
             seller_id,
@@ -442,7 +441,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # Покупателю
     try:
         await call.bot.send_message(
             creator_id,
