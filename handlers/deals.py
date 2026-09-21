@@ -20,7 +20,6 @@ from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
     ensure_user, is_coadmin, add_referral,
-    block_user,
 )
 from handlers.start import main_text
 
@@ -416,7 +415,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     amount = deal["amount"]
     method = deal["method"]
 
-    # Продавцу 97%
     payout = amount * 0.97
 
     if method == "stars":
@@ -430,7 +428,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     inc_completed_deals(creator_id)
     inc_completed_deals(seller_id)
 
-    # Уведомляем продавца
     try:
         await call.bot.send_message(
             seller_id,
@@ -444,7 +441,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # Уведомляем покупателя
     try:
         await call.bot.send_message(
             creator_id,
@@ -462,56 +458,6 @@ async def cb_deal_confirm(call: CallbackQuery):
         pass
 
     await call.answer("✅ Сделка подтверждена")
-
-
-# ==================== АДМИН: ЗАБЛОКИРОВАТЬ МАМОНТА ====================
-
-@router.callback_query(F.data.startswith("deal_block_"))
-async def cb_deal_block(call: CallbackQuery):
-    uid = call.from_user.id
-    if not (is_coadmin(uid) or uid in {ADMIN_ID, GUARANTOR_ID}):
-        await call.answer("Нет доступа", show_alert=True)
-        return
-
-    deal_id = call.data.replace("deal_block_", "")
-    deal = get_deal(deal_id)
-
-    if not deal:
-        await call.answer("Сделка не найдена", show_alert=True)
-        return
-
-    seller_id = deal.get("seller_id")
-    creator_id = deal["creator_id"]
-
-    update_deal(deal_id, status="cancelled")
-
-    if seller_id:
-        block_user(seller_id)
-        try:
-            await call.bot.send_message(
-                seller_id,
-                "🚫 <b>Вы заблокированы администратором.</b>\n\n"
-                "Бот больше не будет реагировать на ваши сообщения.",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-
-    try:
-        await call.bot.send_message(
-            creator_id,
-            "✅ <b>Успешно!</b>",
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
-
-    try:
-        await call.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-
-    await call.answer("🚫 Продавец заблокирован")
 
 
 # ==================== ВЫВОД ====================
