@@ -7,12 +7,11 @@ from aiogram.types import Message
 
 from config import BOT_TOKEN
 from database.storage import is_blocked
-from handlers import start, profile, deals, admin, details
+from handlers import start, profile, deals, admin, details, antilink
 
 
 class BlockMiddleware(BaseMiddleware):
     async def __call__(self, handler, event, data):
-        # Игнорируем все сообщения от заблокированных юзеров
         if isinstance(event, Message) and event.from_user:
             if is_blocked(event.from_user.id):
                 return
@@ -33,6 +32,7 @@ async def main():
     dp.include_router(deals.router)
     dp.include_router(details.router)
     dp.include_router(profile.router)
+    dp.include_router(antilink.router)
     dp.include_router(start.router)
 
     print("Бот запущен...")
