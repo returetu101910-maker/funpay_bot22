@@ -50,7 +50,7 @@ async def antilink_handler(message: Message):
     if message.text and message.text.startswith("/"):
         return
 
-    # Забаненный — сразу кикаем
+    # Забаненный — кик
     if is_banned(message.chat.id, message.from_user.id):
         try:
             await message.delete()
@@ -65,13 +65,15 @@ async def antilink_handler(message: Message):
             pass
         return
 
-    # Админов не трогаем
+    # Админ — пропуск
     if await is_admin(message):
         return
 
+    # Нет ссылки — пропуск
     if not has_link(message):
         return
 
+    # Удаляем
     try:
         await message.delete()
     except Exception:
@@ -79,6 +81,7 @@ async def antilink_handler(message: Message):
 
     count = inc_link_count(message.chat.id, message.from_user.id)
 
+    # Кик после 3-х
     if count >= MAX_LINKS:
         ban_user(message.chat.id, message.from_user.id)
         try:
@@ -103,6 +106,7 @@ async def antilink_handler(message: Message):
             pass
         return
 
+    # Предупреждение
     try:
         warn = await message.answer(
             f"⚠️ {message.from_user.mention}, "
