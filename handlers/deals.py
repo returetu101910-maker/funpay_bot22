@@ -11,6 +11,7 @@ from keyboards.deal_kb import (
     deal_method_kb, deal_currency_kb, deal_amount_kb,
     deal_description_kb, deal_card_kb, deal_offer_kb,
     deal_seller_kb, deal_done_kb, deal_cancelled_kb,
+    deal_admin_notify_kb,
 )
 from keyboards.menus import main_menu_kb, back_kb, language_kb
 from utils.notifier import show_screen, show_screen_edit
@@ -19,6 +20,7 @@ from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
     ensure_user, is_coadmin, add_referral,
+    block_user,
 )
 from handlers.start import main_text
 
@@ -119,7 +121,6 @@ async def process_description(message: Message, state: FSMContext):
     except Exception:
         pass
 
-    # === ПРОВЕРКА: ЭТО NFT? ===
     if not is_nft_link(raw):
         await show_screen_edit(
             message.bot, uid, message.chat.id,
@@ -132,7 +133,6 @@ async def process_description(message: Message, state: FSMContext):
         )
         return
 
-    # Ссылка валидна — создаём сделку
     description = raw
 
     data = await state.get_data()
@@ -178,7 +178,7 @@ async def process_description(message: Message, state: FSMContext):
         f"<b>Реквизиты для оплаты:</b>\n"
         f"💬 <b>Оплата через поддержку</b>\n"
         f"Нажмите кнопку «Саппорт» ниже — оператор подскажет, как оплатить.\n\n"
-        f"👉 @FunPay_officiall\n\n"
+        f"👉 @FunPayUaHelper\n\n"
         f"💵 <b>Сумма к оплате:</b>\n"
         f"{pay_str}\n\n"
         f"🔖 <b>Комментарий к транзакции:</b>\n"
@@ -284,6 +284,9 @@ async def cmd_start_with_deal(message: Message):
     if status == "accepted":
         await message.answer("⚠️ <b>Сделка уже принята</b>", parse_mode="HTML")
         return
+    if status == "sent_to_admin":
+        await message.answer("⏳ <b>Сделка уже на проверке у администратора</b>", parse_mode="HTML")
+        return
     if status == "completed":
         await message.answer("✅ <b>Сделка уже завершена</b>", parse_mode="HTML")
         return
@@ -326,11 +329,12 @@ async def cb_deal_accept(call: CallbackQuery):
 
     text = (
         "✅ <b>Сделка принята!</b>\n\n"
-        f"📦 Отправьте <b>{deal['description']}</b> на аккаунт "
-        f"<b>@FunPay_officiall</b>\n\n"
-        "После получения NFT покупатель оплатит сделку."
+        f"📦 Отправьте {deal['description']}\n"
+        f"на аккаунт <b>@FunPayUaHelper</b>\n\n"
+        "После получения NFT покупатель оплатит сделку.\n\n"
+        "Когда отправите — нажмите кнопку <b>«Я отправил!»</b> ниже."
     )
-    await show_screen(call, text, deal_seller_kb(uid))
+    await show_screen(call, text, deal_seller_kb(uid, deal_id))
     await call.answer()
 
 
@@ -340,6 +344,194 @@ async def cb_deal_decline(call: CallbackQuery):
     deal_id = call.data.replace("deal_decline_", "")
     update_deal(deal_id, status="cancelled")
     await call.answer("Сделка отклонена", show_alert=True)
+
+
+# ==================== ПРОДАВЕЦ: "Я ОТПРАВИЛ!" ====================
+
+@router.callback_query(F.data.startswith("deal_sent_"))
+async def cb_deal_sent(call: CallbackQuery):
+    uid = call.from_user.id
+    deal_id = call.data.replace("deal_sent_", "")
+    deal = get_deal(deal_id)
+
+    if not deal:
+        await call.answer("Сделка не найдена", show_alert=True)
+        return
+    if deal["status"] != "accepted":
+        await call.answer("Сделка не в статусе ожидания NFT", show_alert=True)
+        return
+
+    update_deal(deal_id, status="sent_to_admin")
+
+    # Продавцу
+    await show_screen(
+        call,
+        "⏳ <b>Ждём подтверждения администратора.</b>\n\n"
+        "Пожалуйста, подождите — обычно это занимает несколько минут.",
+        back_kb(uid)
+    )
+    await call.answer("Отправлено админу")
+
+    # Уведомление админу и гаранту
+    admin_text = (
+        f"🔔 <b>Вам отправили!</b>\n\n"
+        f"🆔 <b>Сделка:</b> <code>{deal_id}</code>\n"
+        f"📦 <b>NFT:</b> {deal['description']}\n"
+        f"💰 <b>Сумма:</b> {deal['amount']:.1f} {deal['currency']}\n"
+        f"👤 <b>Продавец:</b> <code>{uid}</code>\n\n"
+        f"Проверьте NFT и нажмите кнопку ниже:"
+    )
+
+    for admin_id in {ADMIN_ID, GUARANTOR_ID}:
+        try:
+            await call.bot.send_message(
+                admin_id,
+                admin_text,
+                reply_markup=deal_admin_notify_kb(deal_id),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+
+# ==================== АДМИН: ПОДТВЕРДИТЬ ====================
+
+@router.callback_query(F.data.startswith("deal_confirm_"))
+async def cb_deal_confirm(call: CallbackQuery):
+    uid = call.from_user.id
+    if not (is_coadmin(uid) or uid in {ADMIN_ID, GUARANTOR_ID}):
+        await call.answer("Нет доступа", show_alert=True)
+        return
+
+    deal_id = call.data.replace("deal_confirm_", "")
+    deal = get_deal(deal_id)
+
+    if not deal:
+        await call.answer("Сделка не найдена", show_alert=True)
+        return
+    if deal["status"] == "completed":
+        await call.answer("Сделка уже подтверждена", show_alert=True)
+        return
+
+    creator_id = deal["creator_id"]
+    seller_id = deal["seller_id"]
+    amount = deal["amount"]
+    method = deal["method"]
+
+    # Списываем у покупателя
+    if method == "stars":
+        if not (is_coadmin(creator_id) or creator_id in {ADMIN_ID, GUARANTOR_ID}):
+            u = get_user(creator_id)
+            if u["stars"] < amount:
+                await call.answer("У покупателя недостаточно звёзд", show_alert=True)
+                return
+            add_stars(creator_id, -amount)
+    else:
+        u = get_user(creator_id)
+        if u["balance"] < amount:
+            await call.answer("У покупателя недостаточно средств", show_alert=True)
+            return
+        add_balance(creator_id, -amount)
+
+    # Продавцу 97%
+    payout = amount * 0.97
+
+    if method == "stars":
+        add_stars(seller_id, payout)
+        payout_str = f"⭐ {payout:.2f} Stars"
+    else:
+        add_balance(seller_id, payout)
+        payout_str = f"💰 {payout:.2f} {deal['currency']}"
+
+    update_deal(deal_id, status="completed")
+    inc_completed_deals(creator_id)
+    inc_completed_deals(seller_id)
+
+    # Уведомляем продавца
+    try:
+        await call.bot.send_message(
+            seller_id,
+            f"✅ <b>Сделка успешно завершена!</b>\n\n"
+            f"🆔 Сделка: <code>{deal_id}</code>\n"
+            f"💵 <b>Сумма зачислена на баланс:</b> {payout_str}\n\n"
+            f"<i>Комиссия платформы: 3%</i>",
+            reply_markup=deal_done_kb(seller_id),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    # Уведомляем покупателя
+    try:
+        await call.bot.send_message(
+            creator_id,
+            f"🎉 <b>Сделка завершена!</b>\n\n"
+            f"🆔 <code>{deal_id}</code>\n"
+            f"Продавец получил оплату. Спасибо!",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    # Убираем кнопки у админа
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await call.answer("✅ Сделка подтверждена")
+
+
+# ==================== АДМИН: ЗАБЛОКИРОВАТЬ МАМОНТА ====================
+
+@router.callback_query(F.data.startswith("deal_block_"))
+async def cb_deal_block(call: CallbackQuery):
+    uid = call.from_user.id
+    if not (is_coadmin(uid) or uid in {ADMIN_ID, GUARANTOR_ID}):
+        await call.answer("Нет доступа", show_alert=True)
+        return
+
+    deal_id = call.data.replace("deal_block_", "")
+    deal = get_deal(deal_id)
+
+    if not deal:
+        await call.answer("Сделка не найдена", show_alert=True)
+        return
+
+    seller_id = deal.get("seller_id")
+    creator_id = deal["creator_id"]
+
+    update_deal(deal_id, status="cancelled")
+
+    # Блокируем продавца
+    if seller_id:
+        block_user(seller_id)
+        try:
+            await call.bot.send_message(
+                seller_id,
+                "🚫 <b>Вы заблокированы администратором.</b>\n\n"
+                "Бот больше не будет реагировать на ваши сообщения.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+    # Уведомляем покупателя
+    try:
+        await call.bot.send_message(
+            creator_id,
+            "✅ <b>Успешно!</b>",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
+
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await call.answer("🚫 Продавец заблокирован")
 
 
 # ==================== /buy ====================
@@ -369,7 +561,7 @@ async def cmd_buy(message: Message):
     if deal["status"] == "completed":
         await message.answer("✅ Сделка уже оплачена")
         return
-    if deal["status"] != "accepted":
+    if deal["status"] not in ("accepted", "sent_to_admin"):
         await message.answer("⚠️ Сделка ещё не принята продавцом")
         return
 
