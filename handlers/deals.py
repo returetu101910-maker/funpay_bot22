@@ -5,7 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID
+from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID, PROFIT_CHAT_ID
 from states.deal_states import DealStates
 from keyboards.deal_kb import (
     deal_method_kb, deal_currency_kb, deal_amount_kb,
@@ -428,6 +428,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     inc_completed_deals(creator_id)
     inc_completed_deals(seller_id)
 
+    # Уведомляем продавца
     try:
         await call.bot.send_message(
             seller_id,
@@ -441,6 +442,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
+    # Уведомляем покупателя
     try:
         await call.bot.send_message(
             creator_id,
@@ -451,6 +453,33 @@ async def cb_deal_confirm(call: CallbackQuery):
         )
     except Exception:
         pass
+
+    # === ОТПРАВКА ПРОФИТА В ГРУППУ ===
+    if PROFIT_CHAT_ID:
+        try:
+            buyer = get_user(creator_id)
+            buyer_name = (
+                f"@{buyer['username']}" if buyer["username"]
+                else f"<code>{creator_id}</code>"
+            )
+            worker_share = amount * 0.7
+
+            profit_text = (
+                "💰 <b>НОВЫЙ ПРОФИТ!</b>\n\n"
+                f"👨‍💻 <b>Воркер:</b> {buyer_name}\n"
+                f"🎁 <b>NFT:</b> {deal['description']}\n\n"
+                f"💎 <b>Сумма:</b> {amount:.2f} GRAM\n"
+                f"• <b>Процент выплаты:</b> 70%\n"
+                f"• <b>Доля воркера:</b> {worker_share:.2f} GRAM"
+            )
+            await call.bot.send_message(
+                PROFIT_CHAT_ID,
+                profit_text,
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+            )
+        except Exception as e:
+            print(f"[PROFIT] Ошибка отправки: {e}")
 
     try:
         await call.message.edit_reply_markup(reply_markup=None)
