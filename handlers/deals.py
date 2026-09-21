@@ -5,7 +5,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID, PROFIT_CHAT_ID
+from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID
 from states.deal_states import DealStates
 from keyboards.deal_kb import (
     deal_method_kb, deal_currency_kb, deal_amount_kb,
@@ -19,7 +19,7 @@ from utils.i18n import t, USER_LANGS, LANG_HEADER
 from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
-    ensure_user, is_coadmin, add_referral,
+    ensure_user, is_coadmin, add_referral, get_setting,
 )
 from handlers.start import main_text
 
@@ -455,7 +455,8 @@ async def cb_deal_confirm(call: CallbackQuery):
         pass
 
     # === ОТПРАВКА ПРОФИТА В ГРУППУ ===
-    if PROFIT_CHAT_ID:
+    profit_chat = get_setting("profit_chat_id")
+    if profit_chat:
         try:
             buyer = get_user(creator_id)
             buyer_name = (
@@ -473,7 +474,7 @@ async def cb_deal_confirm(call: CallbackQuery):
                 f"• <b>Доля воркера:</b> {worker_share:.2f} GRAM"
             )
             await call.bot.send_message(
-                PROFIT_CHAT_ID,
+                int(profit_chat),
                 profit_text,
                 parse_mode="HTML",
                 disable_web_page_preview=True,
