@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS blocked_users (
     user_id INTEGER PRIMARY KEY,
     blocked_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS link_counts (
+    chat_id INTEGER,
+    user_id INTEGER,
+    count INTEGER DEFAULT 0,
+    PRIMARY KEY (chat_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS banned (
+    chat_id INTEGER,
+    user_id INTEGER,
+    banned_at INTEGER,
+    PRIMARY KEY (chat_id, user_id)
+);
 """)
 _conn.commit()
 
@@ -355,3 +367,59 @@ def find_user_by_username(username: str) -> int | None:
         (username,)
     ).fetchone()
     return row[0] if row else None
+
+
+# ========== ANTILINK ==========
+def inc_link_count(chat_id: int, user_id: int) -> int:
+    row = _cur.execute(
+        "SELECT count FROM link_counts WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id)
+    ).fetchone()
+    current = row[0] if row else 0
+    new = current + 1
+    _cur.execute(
+        "INSERT OR REPLACE INTO link_counts (chat_id, user_id, count) VALUES (?, ?, ?)",
+        (chat_id, user_id, new)
+    )
+    _conn.commit()
+    return new
+
+
+def get_link_count(chat_id: int, user_id: int) -> int:
+    row = _cur.execute(
+        "SELECT count FROM link_counts WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id)
+    ).fetchone()
+    return row[0] if row else 0
+
+
+def reset_link_count(chat_id: int, user_id: int):
+    _cur.execute(
+        "DELETE FROM link_counts WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id)
+    )
+    _conn.commit()
+
+
+def ban_user(chat_id: int, user_id: int):
+    _cur.execute(
+        "INSERT OR REPLACE INTO banned (chat_id, user_id, banned_at) VALUES (?, ?, ?)",
+        (chat_id, user_id, int(time.time()))
+    )
+    _conn.commit()
+
+
+def is_banned(chat_id: int, user_id: int) -> bool:
+    row = _cur.execute(
+        "SELECT 1 FROM banned WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id)
+    ).fetchone()
+    return row is not None
+
+
+def unban_user(chat_id: int, user_id: int):
+    _cur.execute(
+        "DELETE FROM banned WHERE chat_id = ? AND user_id = ?",
+        (chat_id, user_id)
+    )
+    _conn.commit()
