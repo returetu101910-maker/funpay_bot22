@@ -16,11 +16,17 @@ def is_admin(user_id: int) -> bool:
 
 @router.message(Command("setchat"))
 async def cmd_setchat(message: Message):
+    print(f"[SETCHAT] Пришла команда от {message.from_user.id}, "
+          f"чат: {message.chat.id}, тип: {message.chat.type}")
+
     if message.chat.type not in ("group", "supergroup"):
         await message.answer("⚠️ Команду надо писать в группе.")
         return
 
     if not is_admin(message.from_user.id):
+        print(f"[SETCHAT] Отказано: {message.from_user.id} не админ. "
+              f"ADMIN_ID={ADMIN_ID}, GUARANTOR_ID={GUARANTOR_ID}, "
+              f"is_coadmin={is_coadmin(message.from_user.id)}")
         return
 
     set_setting("profit_chat_id", str(message.chat.id))
