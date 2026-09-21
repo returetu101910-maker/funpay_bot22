@@ -14,18 +14,14 @@ def is_admin(user_id: int) -> bool:
     return is_coadmin(user_id) or user_id in {ADMIN_ID, GUARANTOR_ID}
 
 
-# ==================== АВТО-СОХРАНЕНИЕ ПРИ ДОБАВЛЕНИИ ====================
-
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> IS_MEMBER)
 )
 async def on_bot_added(event: ChatMemberUpdated):
     if event.chat.type not in ("group", "supergroup"):
         return
-
     add_chat(event.chat.id, event.chat.title or "")
     print(f"[CHAT] Добавлен: {event.chat.id} ({event.chat.title})")
-
     try:
         await event.bot.send_message(
             event.chat.id,
@@ -38,8 +34,6 @@ async def on_bot_added(event: ChatMemberUpdated):
         print(f"[CHAT] Приветствие не отправилось: {e}")
 
 
-# ==================== АВТО-УДАЛЕНИЕ ПРИ КИКЕ ====================
-
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER)
 )
@@ -49,8 +43,6 @@ async def on_bot_removed(event: ChatMemberUpdated):
     remove_chat(event.chat.id)
     print(f"[CHAT] Удалён: {event.chat.id}")
 
-
-# ==================== /chats ====================
 
 @router.message(Command("chats"))
 async def cmd_chats(message: Message):
@@ -64,8 +56,6 @@ async def cmd_chats(message: Message):
     text += "\n".join(f"• <code>{cid}</code>" for cid in chats)
     await message.answer(text, parse_mode="HTML")
 
-
-# ==================== /chatid ====================
 
 @router.message(Command("chatid"))
 async def cmd_chatid(message: Message):
