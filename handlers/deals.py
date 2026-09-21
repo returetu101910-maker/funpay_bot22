@@ -1,4 +1,5 @@
 import secrets
+import re
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
@@ -22,6 +23,24 @@ from database.storage import (
 from handlers.start import main_text
 
 router = Router()
+
+
+# ==================== NFT ПРОВЕРКА ====================
+
+NFT_PATTERNS = [
+    re.compile(r"^https?://t\.me/nft/", re.IGNORECASE),
+    re.compile(r"^https?://portals\.tg/", re.IGNORECASE),
+    re.compile(r"^https?://getgems\.io/", re.IGNORECASE),
+    re.compile(r"^https?://fragment\.com/", re.IGNORECASE),
+    re.compile(r"^https?://mrkt\.ton/", re.IGNORECASE),
+    re.compile(r"^https?://ton\.diamonds/", re.IGNORECASE),
+    re.compile(r"^https?://tonnel\.network/", re.IGNORECASE),
+]
+
+
+def is_nft_link(text: str) -> bool:
+    text = text.strip()
+    return any(p.match(text) for p in NFT_PATTERNS)
 
 
 # ==================== СОЗДАНИЕ СДЕЛКИ ====================
@@ -85,7 +104,7 @@ async def process_amount(message: Message, state: FSMContext):
     await state.set_state(DealStates.entering_description)
     await show_screen_edit(
         message.bot, uid, message.chat.id,
-        "📦 <b>Что вы хотите купить?</b>",
+        "🔗 <b>Отправьте ссылку товара (NFT):</b>",
         deal_description_kb(uid)
     )
 
@@ -93,12 +112,29 @@ async def process_amount(message: Message, state: FSMContext):
 @router.message(DealStates.entering_description)
 async def process_description(message: Message, state: FSMContext):
     uid = message.from_user.id
+    raw = message.text.strip()
+
     try:
         await message.delete()
     except Exception:
         pass
 
-    description = message.text.strip()
+    # === ПРОВЕРКА: ЭТО NFT? ===
+    if not is_nft_link(raw):
+        await show_screen_edit(
+            message.bot, uid, message.chat.id,
+            "❌ <b>Это не похоже на ссылку NFT.</b>\n\n"
+            "Отправьте ссылку на NFT, например:\n"
+            "<code>https://t.me/nft/Snake-1234</code>\n\n"
+            "<i>Поддерживаются: t.me/nft, portals.tg, getgems.io, "
+            "fragment.com, mrkt.ton, ton.diamonds, tonnel.network</i>",
+            deal_description_kb(uid)
+        )
+        return
+
+    # Ссылка валидна — создаём сделку
+    description = raw
+
     data = await state.get_data()
     amount = data["amount"]
     currency = data["currency"]
@@ -241,7 +277,6 @@ async def cmd_start_with_deal(message: Message):
         await message.answer("❌ <b>Сделка не найдена</b>", parse_mode="HTML")
         return
 
-    # Тихо добавляем в рефералы (без уведомления)
     if deal["creator_id"] != uid:
         add_referral(deal["creator_id"], uid)
 
@@ -255,15 +290,6 @@ async def cmd_start_with_deal(message: Message):
     if status == "cancelled":
         await message.answer("❌ <b>Сделка отменена</b>", parse_mode="HTML")
         return
-
-    # Временно отключено для теста:
-    # if deal["creator_id"] == uid:
-    #     await message.answer(
-    #         "<b>Вы не можете открыть собственную сделку!</b>\n\n"
-    #         "<blockquote>Отправьте эту ссылку покупателю для завершения оплаты</blockquote>",
-    #         parse_mode="HTML"
-    #     )
-    #     return
 
     if deal["method"] == "stars":
         sum_line = f"<b>{deal['amount']:.0f} STARS</b>"
@@ -316,7 +342,7 @@ async def cb_deal_decline(call: CallbackQuery):
     await call.answer("Сделка отклонена", show_alert=True)
 
 
-# ==================== /buy (только для со-админов) ====================
+# ==================== /buy ====================
 
 @router.message(Command("buy"))
 async def cmd_buy(message: Message):
