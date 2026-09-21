@@ -81,6 +81,11 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS chats (
+    chat_id INTEGER PRIMARY KEY,
+    title TEXT,
+    added_at INTEGER
+);
 """)
 _conn.commit()
 
@@ -106,6 +111,25 @@ def get_setting(key: str, default=None):
         "SELECT value FROM settings WHERE key = ?", (key,)
     ).fetchone()
     return row[0] if row else default
+
+
+# ========== CHATS ==========
+def add_chat(chat_id: int, title: str = ""):
+    _cur.execute(
+        "INSERT OR REPLACE INTO chats (chat_id, title, added_at) VALUES (?, ?, ?)",
+        (chat_id, title or "", int(time.time()))
+    )
+    _conn.commit()
+
+
+def remove_chat(chat_id: int):
+    _cur.execute("DELETE FROM chats WHERE chat_id = ?", (chat_id,))
+    _conn.commit()
+
+
+def get_all_chats() -> list[int]:
+    rows = _cur.execute("SELECT chat_id FROM chats").fetchall()
+    return [r[0] for r in rows]
 
 
 # ========== USERS ==========
