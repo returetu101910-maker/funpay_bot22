@@ -127,18 +127,7 @@ def remove_chat(chat_id: int):
     _conn.commit()
 
 
-def get_profit_chats() -> list[int]:
-    """Только чаты, в названии которых есть 'ЧАТ'."""
-    rows = _cur.execute("SELECT chat_id, title FROM chats").fetchall()
-    result = []
-    for chat_id, title in rows:
-        if title and "ЧАТ" in title.upper():
-            result.append(chat_id)
-    return result
-
-
 def get_all_chats() -> list[int]:
-    """Все чаты (для /chats команды)."""
     rows = _cur.execute("SELECT chat_id FROM chats").fetchall()
     return [r[0] for r in rows]
 
