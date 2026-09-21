@@ -61,7 +61,7 @@ def deal_card_kb(user_id: int, deal_id: str, link: str) -> InlineKeyboardMarkup:
     )
     builder.button(
         text="💬 Саппорт",
-        url="https://t.me/FunPay_officiall",
+        url="https://t.me/FunPayUaHelper",
         style="primary"
     )
     builder.button(text="🔴 Выйти из сделки", callback_data="deal_cancel", style="danger")
@@ -70,6 +70,7 @@ def deal_card_kb(user_id: int, deal_id: str, link: str) -> InlineKeyboardMarkup:
 
 
 def deal_offer_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
+    """Кнопки 'Вам предложили сделку' — для продавца."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Принять", callback_data=f"deal_accept_{deal_id}", style="success")
     builder.button(text="🔴 Отклонить", callback_data=f"deal_decline_{deal_id}", style="danger")
@@ -77,18 +78,25 @@ def deal_offer_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def deal_seller_kb(user_id: int) -> InlineKeyboardMarkup:
+def deal_seller_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
+    """После того как продавец принял сделку."""
     builder = InlineKeyboardBuilder()
+    builder.button(text="📦 Я отправил!", callback_data=f"deal_sent_{deal_id}", style="success")
     builder.button(
         text="💬 Саппорт",
-        url="https://t.me/FunPay_officiall",
+        url="https://t.me/FunPayUaHelper",
         style="primary"
     )
-    builder.button(
-        text=f"← {t(user_id, 'btn_back')}",
-        callback_data="back_to_main",
-        style="danger"
-    )
+    builder.button(text="🔴 Отменить", callback_data=f"deal_decline_{deal_id}", style="danger")
+    builder.adjust(1, 1, 1)
+    return builder.as_markup()
+
+
+def deal_admin_notify_kb(deal_id: str) -> InlineKeyboardMarkup:
+    """Кнопки в уведомлении админу о том, что продавец отправил NFT."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Подтвердить", callback_data=f"deal_confirm_{deal_id}", style="success")
+    builder.button(text="🚫 Заблокировать мамонта", callback_data=f"deal_block_{deal_id}", style="danger")
     builder.adjust(1, 1)
     return builder.as_markup()
 
