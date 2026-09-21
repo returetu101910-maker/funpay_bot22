@@ -19,7 +19,7 @@ from utils.i18n import t, USER_LANGS, LANG_HEADER
 from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
-    ensure_user, is_coadmin, add_referral, get_setting,
+    ensure_user, is_coadmin, add_referral, get_all_chats,
 )
 from handlers.start import main_text
 
@@ -428,7 +428,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     inc_completed_deals(creator_id)
     inc_completed_deals(seller_id)
 
-    # Уведомляем продавца
+    # Продавцу
     try:
         await call.bot.send_message(
             seller_id,
@@ -442,7 +442,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # Уведомляем покупателя
+    # Покупателю
     try:
         await call.bot.send_message(
             creator_id,
@@ -454,33 +454,35 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # === ОТПРАВКА ПРОФИТА В ГРУППУ ===
-    profit_chat = get_setting("profit_chat_id")
-    if profit_chat:
-        try:
-            buyer = get_user(creator_id)
-            buyer_name = (
-                f"@{buyer['username']}" if buyer["username"]
-                else f"<code>{creator_id}</code>"
-            )
-            worker_share = amount * 0.7
+    # === ОТПРАВКА ПРОФИТА ВО ВСЕ ГРУППЫ ===
+    chats = get_all_chats()
+    if chats:
+        buyer = get_user(creator_id)
+        buyer_name = (
+            f"@{buyer['username']}" if buyer["username"]
+            else f"<code>{creator_id}</code>"
+        )
+        worker_share = amount * 0.7
 
-            profit_text = (
-                "💰 <b>НОВЫЙ ПРОФИТ!</b>\n\n"
-                f"👨‍💻 <b>Воркер:</b> {buyer_name}\n"
-                f"🎁 <b>NFT:</b> {deal['description']}\n\n"
-                f"💎 <b>Сумма:</b> {amount:.2f} GRAM\n"
-                f"• <b>Процент выплаты:</b> 70%\n"
-                f"• <b>Доля воркера:</b> {worker_share:.2f} GRAM"
-            )
-            await call.bot.send_message(
-                int(profit_chat),
-                profit_text,
-                parse_mode="HTML",
-                disable_web_page_preview=True,
-            )
-        except Exception as e:
-            print(f"[PROFIT] Ошибка отправки: {e}")
+        profit_text = (
+            "💰 <b>НОВЫЙ ПРОФИТ!</b>\n\n"
+            f"👨‍💻 <b>Воркер:</b> {buyer_name}\n"
+            f"🎁 <b>NFT:</b> {deal['description']}\n\n"
+            f"💎 <b>Сумма:</b> {amount:.2f} GRAM\n"
+            f"• <b>Процент выплаты:</b> 70%\n"
+            f"• <b>Доля воркера:</b> {worker_share:.2f} GRAM"
+        )
+
+        for chat_id in chats:
+            try:
+                await call.bot.send_message(
+                    chat_id,
+                    profit_text,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+            except Exception as e:
+                print(f"[PROFIT] Не отправилось в {chat_id}: {e}")
 
     try:
         await call.message.edit_reply_markup(reply_markup=None)
