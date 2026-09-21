@@ -19,7 +19,7 @@ from utils.i18n import t, USER_LANGS, LANG_HEADER
 from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
-    ensure_user, is_coadmin, add_referral, get_profit_chats,
+    ensure_user, is_coadmin, add_referral, get_all_chats,
 )
 from handlers.start import main_text
 
@@ -454,8 +454,8 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # === ОТПРАВКА ПРОФИТА В ЧАТЫ С "ЧАТ" В НАЗВАНИИ ===
-    chats = get_profit_chats()
+    # === ОТПРАВКА ПРОФИТА ВО ВСЕ СОХРАНЁННЫЕ ЧАТЫ ===
+    chats = get_all_chats()
     if chats:
         buyer = get_user(creator_id)
         buyer_name = (
