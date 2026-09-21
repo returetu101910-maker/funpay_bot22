@@ -2,10 +2,10 @@ import secrets
 import re
 from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
-from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID
+from config import BOT_USERNAME, ADMIN_ID, GUARANTOR_ID, PROFIT_PHOTO
 from states.deal_states import DealStates
 from keyboards.deal_kb import (
     deal_method_kb, deal_currency_kb, deal_amount_kb,
@@ -19,7 +19,7 @@ from utils.i18n import t, USER_LANGS, LANG_HEADER
 from database.storage import (
     get_cards, get_user, create_deal, get_deal, update_deal,
     add_balance, add_stars, inc_completed_deals, get_completed_deals,
-    ensure_user, is_coadmin, add_referral, get_all_chats,
+    ensure_user, is_coadmin, add_referral, get_profit_chats,
 )
 from handlers.start import main_text
 
@@ -454,33 +454,43 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # === ОТПРАВКА ПРОФИТА ВО ВСЕ ГРУППЫ ===
-    chats = get_all_chats()
+    # === ОТПРАВКА ПРОФИТА В ЧАТЫ С "ЧАТ" В НАЗВАНИИ ===
+    chats = get_profit_chats()
     if chats:
         buyer = get_user(creator_id)
         buyer_name = (
             f"@{buyer['username']}" if buyer["username"]
             else f"<code>{creator_id}</code>"
         )
-        worker_share = amount * 0.7
 
-        profit_text = (
+        profit_caption = (
             "💰 <b>НОВЫЙ ПРОФИТ!</b>\n\n"
             f"👨‍💻 <b>Воркер:</b> {buyer_name}\n"
-            f"🎁 <b>NFT:</b> {deal['description']}\n\n"
-            f"💎 <b>Сумма:</b> {amount:.2f} GRAM\n"
-            f"• <b>Процент выплаты:</b> 70%\n"
-            f"• <b>Доля воркера:</b> {worker_share:.2f} GRAM"
+            f"🎁 <b>NFT:</b> {deal['description']}"
         )
+
+        photo = None
+        try:
+            photo = FSInputFile(PROFIT_PHOTO)
+        except Exception as e:
+            print(f"[PROFIT] Не нашёл фото: {e}")
 
         for chat_id in chats:
             try:
-                await call.bot.send_message(
-                    chat_id,
-                    profit_text,
-                    parse_mode="HTML",
-                    disable_web_page_preview=True,
-                )
+                if photo:
+                    await call.bot.send_photo(
+                        chat_id,
+                        photo=photo,
+                        caption=profit_caption,
+                        parse_mode="HTML",
+                    )
+                else:
+                    await call.bot.send_message(
+                        chat_id,
+                        profit_caption,
+                        parse_mode="HTML",
+                        disable_web_page_preview=True,
+                    )
             except Exception as e:
                 print(f"[PROFIT] Не отправилось в {chat_id}: {e}")
 
