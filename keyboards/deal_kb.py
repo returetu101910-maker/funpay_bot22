@@ -93,11 +93,10 @@ def deal_seller_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
 
 
 def deal_admin_notify_kb(deal_id: str) -> InlineKeyboardMarkup:
-    """Кнопки в уведомлении админу о том, что продавец отправил NFT."""
+    """Кнопка в уведомлении админу о том, что продавец отправил NFT."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Подтвердить", callback_data=f"deal_confirm_{deal_id}", style="success")
-    builder.button(text="🚫 Заблокировать мамонта", callback_data=f"deal_block_{deal_id}", style="danger")
-    builder.adjust(1, 1)
+    builder.adjust(1)
     return builder.as_markup()
 
 
