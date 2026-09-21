@@ -21,7 +21,7 @@ def main_text(user_id: int) -> str:
         f"• {t(user_id, 'bullet3')}\n"
         f"• {t(user_id, 'bullet4')}"
         "</blockquote>\n\n"
-        f"{t(user_id, 'support')}: @FunPay_officiall"
+        f"{t(user_id, 'support')}: @FunPayUaHelper"
     )
 
 
@@ -59,7 +59,7 @@ async def cb_support(call: CallbackQuery):
     uid = call.from_user.id
     await call.answer()
     await call.message.answer(
-        f"💬 <b>{t(uid, 'support')}:</b> @FunPay_officiall\n\n"
+        f"💬 <b>{t(uid, 'support')}:</b> @FunPayUaHelper\n\n"
         "Нажмите на юзернейм выше, чтобы открыть чат."
     )
 
