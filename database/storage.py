@@ -77,6 +77,10 @@ CREATE TABLE IF NOT EXISTS banned (
     banned_at INTEGER,
     PRIMARY KEY (chat_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """)
 _conn.commit()
 
@@ -86,6 +90,22 @@ try:
     _conn.commit()
 except sqlite3.OperationalError:
     pass
+
+
+# ========== SETTINGS ==========
+def set_setting(key: str, value: str):
+    _cur.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+        (key, str(value))
+    )
+    _conn.commit()
+
+
+def get_setting(key: str, default=None):
+    row = _cur.execute(
+        "SELECT value FROM settings WHERE key = ?", (key,)
+    ).fetchone()
+    return row[0] if row else default
 
 
 # ========== USERS ==========
