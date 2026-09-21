@@ -1,7 +1,7 @@
 import secrets
 import re
 from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
@@ -363,7 +363,6 @@ async def cb_deal_sent(call: CallbackQuery):
 
     update_deal(deal_id, status="sent_to_admin")
 
-    # Продавцу
     await show_screen(
         call,
         "⏳ <b>Ждём подтверждения администратора.</b>\n\n"
@@ -372,7 +371,6 @@ async def cb_deal_sent(call: CallbackQuery):
     )
     await call.answer("Отправлено админу")
 
-    # Уведомление админу и гаранту
     admin_text = (
         f"🔔 <b>Вам отправили!</b>\n\n"
         f"🆔 <b>Сделка:</b> <code>{deal_id}</code>\n"
@@ -418,21 +416,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     amount = deal["amount"]
     method = deal["method"]
 
-    # Списываем у покупателя
-    if method == "stars":
-        if not (is_coadmin(creator_id) or creator_id in {ADMIN_ID, GUARANTOR_ID}):
-            u = get_user(creator_id)
-            if u["stars"] < amount:
-                await call.answer("У покупателя недостаточно звёзд", show_alert=True)
-                return
-            add_stars(creator_id, -amount)
-    else:
-        u = get_user(creator_id)
-        if u["balance"] < amount:
-            await call.answer("У покупателя недостаточно средств", show_alert=True)
-            return
-        add_balance(creator_id, -amount)
-
     # Продавцу 97%
     payout = amount * 0.97
 
@@ -473,7 +456,6 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # Убираем кнопки у админа
     try:
         await call.message.edit_reply_markup(reply_markup=None)
     except Exception:
@@ -503,7 +485,6 @@ async def cb_deal_block(call: CallbackQuery):
 
     update_deal(deal_id, status="cancelled")
 
-    # Блокируем продавца
     if seller_id:
         block_user(seller_id)
         try:
@@ -516,7 +497,6 @@ async def cb_deal_block(call: CallbackQuery):
         except Exception:
             pass
 
-    # Уведомляем покупателя
     try:
         await call.bot.send_message(
             creator_id,
@@ -532,89 +512,6 @@ async def cb_deal_block(call: CallbackQuery):
         pass
 
     await call.answer("🚫 Продавец заблокирован")
-
-
-# ==================== /buy ====================
-
-@router.message(Command("buy"))
-async def cmd_buy(message: Message):
-    uid = message.from_user.id
-
-    if not (is_coadmin(uid) or uid in {ADMIN_ID, GUARANTOR_ID}):
-        await message.answer(
-            "❌ <b>Команда доступна только администраторам</b>",
-            parse_mode="HTML"
-        )
-        return
-
-    parts = message.text.split(maxsplit=1)
-    if len(parts) < 2:
-        await message.answer("Использование: /buy <номер_сделки>")
-        return
-
-    deal_id = parts[1].strip().lstrip("#")
-    deal = get_deal(deal_id)
-
-    if not deal:
-        await message.answer("❌ Сделка не найдена")
-        return
-    if deal["status"] == "completed":
-        await message.answer("✅ Сделка уже оплачена")
-        return
-    if deal["status"] not in ("accepted", "sent_to_admin"):
-        await message.answer("⚠️ Сделка ещё не принята продавцом")
-        return
-
-    creator_id = deal["creator_id"]
-    seller_id = deal["seller_id"]
-    amount = deal["amount"]
-    method = deal["method"]
-
-    if method == "stars":
-        if not (is_coadmin(creator_id) or creator_id in {ADMIN_ID, GUARANTOR_ID}):
-            u = get_user(creator_id)
-            if u["stars"] < amount:
-                await message.answer("❌ <b>У покупателя недостаточно звёзд</b>", parse_mode="HTML")
-                return
-            add_stars(creator_id, -amount)
-    else:
-        u = get_user(creator_id)
-        if u["balance"] < amount:
-            await message.answer("❌ <b>У покупателя недостаточно средств</b>", parse_mode="HTML")
-            return
-        add_balance(creator_id, -amount)
-
-    payout = amount * 0.97
-
-    if method == "stars":
-        add_stars(seller_id, payout)
-        payout_str = f"⭐ {payout:.2f} Stars"
-    else:
-        add_balance(seller_id, payout)
-        payout_str = f"💰 {payout:.2f} {deal['currency']}"
-
-    update_deal(deal_id, status="completed")
-    inc_completed_deals(creator_id)
-    inc_completed_deals(seller_id)
-
-    try:
-        await message.bot.send_message(
-            seller_id,
-            f"✅ <b>Сделка успешно завершена!</b>\n\n"
-            f"🆔 Сделка: <code>{deal_id}</code>\n"
-            f"💵 <b>Сумма зачислена на баланс:</b> {payout_str}\n\n"
-            f"<i>Комиссия платформы: 3%</i>",
-            reply_markup=deal_done_kb(seller_id),
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
-
-    await message.answer(
-        f"✅ <b>Сделка оплачена!</b>\n\n"
-        f"Продавцу зачислено: {payout_str}",
-        parse_mode="HTML"
-    )
 
 
 # ==================== ВЫВОД ====================
