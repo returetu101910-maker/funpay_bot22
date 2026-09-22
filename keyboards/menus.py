@@ -49,10 +49,14 @@ def language_kb(user_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for code, flag, name in COUNTRIES:
         builder.button(text=f"{flag} {name}", callback_data=f"lang_{code}", style="success")
-    builder.button(
-        text=f"← {t(user_id, 'btn_back')}",
-        callback_data="back_to_main",
-        style="danger"
-    )
-    builder.adjust(1, 1, 1, 1, 1)
+    builder.adjust(2, 2)
+    return builder.as_markup()
+
+
+def language_first_kb() -> InlineKeyboardMarkup:
+    """Клавиатура выбора языка при первом /start (без Назад)."""
+    builder = InlineKeyboardBuilder()
+    for code, flag, name in COUNTRIES:
+        builder.button(text=f"{flag} {name}", callback_data=f"lang_{code}", style="success")
+    builder.adjust(2, 2)
     return builder.as_markup()
