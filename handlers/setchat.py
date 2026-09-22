@@ -14,7 +14,6 @@ def is_admin(user_id: int) -> bool:
     return is_coadmin(user_id) or user_id in {ADMIN_ID, GUARANTOR_ID}
 
 
-# === Бот добавлен в любую группу — сохраняем ===
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> IS_MEMBER)
 )
@@ -35,7 +34,6 @@ async def on_bot_added(event: ChatMemberUpdated):
         print(f"[CHAT] Приветствие не отправилось: {e}")
 
 
-# === Бот удалён из группы — забываем ===
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER)
 )
