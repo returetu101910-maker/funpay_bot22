@@ -127,7 +127,6 @@ async def process_description(message: Message, state: FSMContext):
     currency = data.get("currency")
     method = data.get("method", "card")
 
-    # Защита от потери FSM
     if amount is None or currency is None:
         await state.clear()
         await show_screen_edit(
@@ -138,7 +137,6 @@ async def process_description(message: Message, state: FSMContext):
         )
         return
 
-    # Проверка NFT
     if not is_nft_link(raw):
         await show_screen_edit(
             message.bot, uid, message.chat.id,
@@ -462,7 +460,7 @@ async def cb_deal_confirm(call: CallbackQuery):
     except Exception:
         pass
 
-    # === ПРОФИТ В ГРУППЫ ===
+    # === ПРОФИТ ВО ВСЕ ГРУППЫ ===
     chats = get_all_chats()
     if chats:
         buyer = get_user(creator_id)
