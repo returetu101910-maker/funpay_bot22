@@ -20,13 +20,11 @@ def deal_method_kb(user_id: int) -> InlineKeyboardMarkup:
 def deal_currency_kb(user_id: int, is_coadmin_user: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    # Обычные валюты
     for c in ["RUB", "KZT", "UAH", "BYN", "AZN", "AMD", "EUR", "UZS"]:
         builder.button(text=c, callback_data=f"deal_currency_{c}", style="success")
 
-    # GRAM — только со-админам
     if is_coadmin_user:
-        builder.button(text="💎 GRAM", callback_data="deal_currency_GRAM", style="success")
+        builder.button(text="💎 GRAM", callback_data="deal_currency_GRAM", style="primary")
         builder.button(
             text=f"← {t(user_id, 'btn_back')}",
             callback_data="deal_back_to_method",
