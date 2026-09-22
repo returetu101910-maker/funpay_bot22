@@ -14,8 +14,7 @@ def is_admin(user_id: int) -> bool:
     return is_coadmin(user_id) or user_id in {ADMIN_ID, GUARANTOR_ID}
 
 
-# ==================== БОТА ДОБАВИЛИ В ЛЮБУЮ ГРУППУ ====================
-
+# === Бот добавлен в любую группу — сохраняем ===
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> IS_MEMBER)
 )
@@ -36,8 +35,7 @@ async def on_bot_added(event: ChatMemberUpdated):
         print(f"[CHAT] Приветствие не отправилось: {e}")
 
 
-# ==================== БОТА УДАЛИЛИ ИЗ ГРУППЫ ====================
-
+# === Бот удалён из группы — забываем ===
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER)
 )
@@ -47,8 +45,6 @@ async def on_bot_removed(event: ChatMemberUpdated):
     remove_chat(event.chat.id)
     print(f"[CHAT] Удалён: {event.chat.id}")
 
-
-# ==================== /chats — список сохранённых групп ====================
 
 @router.message(Command("chats"))
 async def cmd_chats(message: Message):
@@ -62,8 +58,6 @@ async def cmd_chats(message: Message):
     text += "\n".join(f"• <code>{cid}</code>" for cid in chats)
     await message.answer(text, parse_mode="HTML")
 
-
-# ==================== /chatid — узнать ID текущего чата ====================
 
 @router.message(Command("chatid"))
 async def cmd_chatid(message: Message):
