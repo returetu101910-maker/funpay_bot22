@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from config import BOT_USERNAME
-from keyboards.menus import main_menu_kb, back_kb, language_kb
+from keyboards.menus import main_menu_kb, back_kb, language_kb, language_first_kb
 from utils.notifier import show_screen
 from utils.i18n import t, USER_LANGS, LANG_HEADER
 
@@ -28,6 +28,12 @@ def main_text(user_id: int) -> str:
 @router.message(CommandStart(deep_link=False))
 async def cmd_start(message: Message):
     uid = message.from_user.id
+
+    # Первый запуск — выбор языка
+    if uid not in USER_LANGS:
+        await show_screen(message, LANG_HEADER, language_first_kb())
+        return
+
     await show_screen(message, main_text(uid), main_menu_kb(uid))
 
 
