@@ -17,16 +17,30 @@ def deal_method_kb(user_id: int) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def deal_currency_kb(user_id: int) -> InlineKeyboardMarkup:
+def deal_currency_kb(user_id: int, is_coadmin_user: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+
+    # Обычные валюты
     for c in ["RUB", "KZT", "UAH", "BYN", "AZN", "AMD", "EUR", "UZS"]:
         builder.button(text=c, callback_data=f"deal_currency_{c}", style="success")
-    builder.button(
-        text=f"← {t(user_id, 'btn_back')}",
-        callback_data="deal_back_to_method",
-        style="danger"
-    )
-    builder.adjust(4, 4, 1)
+
+    # GRAM — только со-админам
+    if is_coadmin_user:
+        builder.button(text="💎 GRAM", callback_data="deal_currency_GRAM", style="success")
+        builder.button(
+            text=f"← {t(user_id, 'btn_back')}",
+            callback_data="deal_back_to_method",
+            style="danger"
+        )
+        builder.adjust(4, 4, 1, 1)
+    else:
+        builder.button(
+            text=f"← {t(user_id, 'btn_back')}",
+            callback_data="deal_back_to_method",
+            style="danger"
+        )
+        builder.adjust(4, 4, 1)
+
     return builder.as_markup()
 
 
@@ -70,7 +84,6 @@ def deal_card_kb(user_id: int, deal_id: str, link: str) -> InlineKeyboardMarkup:
 
 
 def deal_offer_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
-    """Кнопки 'Вам предложили сделку' — для продавца."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Принять", callback_data=f"deal_accept_{deal_id}", style="success")
     builder.button(text="🔴 Отклонить", callback_data=f"deal_decline_{deal_id}", style="danger")
@@ -79,7 +92,6 @@ def deal_offer_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
 
 
 def deal_seller_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
-    """После того как продавец принял сделку."""
     builder = InlineKeyboardBuilder()
     builder.button(text="📦 Я отправил!", callback_data=f"deal_sent_{deal_id}", style="success")
     builder.button(
@@ -93,7 +105,6 @@ def deal_seller_kb(user_id: int, deal_id: str) -> InlineKeyboardMarkup:
 
 
 def deal_admin_notify_kb(deal_id: str) -> InlineKeyboardMarkup:
-    """Кнопка в уведомлении админу о том, что продавец отправил NFT."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Подтвердить", callback_data=f"deal_confirm_{deal_id}", style="success")
     builder.adjust(1)
