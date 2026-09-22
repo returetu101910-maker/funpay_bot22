@@ -15,7 +15,8 @@ def main_menu_kb(user_id: int) -> InlineKeyboardMarkup:
     builder.button(text=t(user_id, "btn_language"), callback_data="language", style="success")
     builder.button(
         text=t(user_id, "btn_reviews"),
-        web_app=WebAppInfo(url=WEBAPP_URL)
+        web_app=WebAppInfo(url=WEBAPP_URL),
+        style="primary"   # ⚡ Отзывы — синяя
     )
     builder.button(text=t(user_id, "btn_support"), callback_data="support", style="success")
     builder.adjust(1, 1, 2, 2, 1, 1, 1)
@@ -49,12 +50,16 @@ def language_kb(user_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for code, flag, name in COUNTRIES:
         builder.button(text=f"{flag} {name}", callback_data=f"lang_{code}", style="success")
-    builder.adjust(2, 2)
+    builder.button(
+        text=f"← {t(user_id, 'btn_back')}",
+        callback_data="back_to_main",
+        style="danger"
+    )
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
 
 def language_first_kb() -> InlineKeyboardMarkup:
-    """Клавиатура выбора языка при первом /start (без Назад)."""
     builder = InlineKeyboardBuilder()
     for code, flag, name in COUNTRIES:
         builder.button(text=f"{flag} {name}", callback_data=f"lang_{code}", style="success")
